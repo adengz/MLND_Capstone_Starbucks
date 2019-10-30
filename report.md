@@ -52,7 +52,7 @@ The transcript will be processed to extract the responses from customers towards
 
 #### `portfolio`
 
-<table>
+<table style="font-size: xx-small;">
 <thead>
 <tr><th style="text-align: right;">  reward</th><th>channels                            </th><th style="text-align: right;">  difficulty</th><th style="text-align: right;">  duration</th><th>offer_type   </th><th>id                              </th></tr>
 </thead>
@@ -74,7 +74,7 @@ The transcript will be processed to extract the responses from customers towards
 
 #### `profile`
 
-<table>
+<table style="font-size: xx-small;">
 <thead>
 <tr><th>gender  </th><th style="text-align: right;">  age</th><th>id                              </th><th style="text-align: right;">  became_member_on</th><th style="text-align: right;">  income</th></tr>
 </thead>
@@ -93,7 +93,7 @@ The transcript will be processed to extract the responses from customers towards
 
 Take a look at the transcript of a particular customer.
 
-<table>
+<table style="font-size: xx-small;">
 <thead>
 <tr><th>person                          </th><th>event          </th><th>value                                                         </th><th style="text-align: right;">  time</th></tr>
 </thead>
@@ -121,9 +121,9 @@ Take a look at the transcript of a particular customer.
 
 By looking at activities of one customer, one can easily find four types of events recorded in `transcript`, transactions and three types of offer activities. 
 
-* 'offer received' marks the time when Starbucks sends the offer to the user, and the offer becomes effective instantly regardless whether the user has viewed it or not. 
-* 'offer viewed' marks the time when user views the offer or becomes aware of it. Note that the user can still view the offer even if he/she has already completed without knowing it, as long as the time is still within the offer's duration. 
-* 'offer completed' marks the time when the user makes qualified transaction meeting the requirement. The dict in the 'value' column has an additional key 'reward', which is associated with the offer id in `portfolio`.
+* 'offer received' marks the time when Starbucks sends the offer to the customer, and the offer becomes effective instantly regardless whether the customer has viewed it or not. 
+* 'offer viewed' marks the time when customer views the offer or becomes aware of it. Note that the customer can still view the offer even if he/she has already completed without knowing it, as long as the time is still within the offer's duration. 
+* 'offer completed' marks the time when the customer makes qualified transaction meeting the requirement. The dict in the 'value' column has an additional key 'reward', which is associated with the offer id in `portfolio`.
 
 ```
 >>> offer_log = transcript[transcript['event'].str.startswith('offer')]
@@ -176,7 +176,7 @@ As a final remark, a unique customer-offer pair may have different responses sin
 
 Based on my observations, all the rows with NaNs in `profile` have gender and income as NaN, and age of 118. As already mentioned in the data source, 118 is the encoded missing value for age. Therefore, imputation is required for gender, age and income. The median of numerical fields (age and income) is used, and another label ('U' for unknown) is applied for gender. Finally, since the three fields are either all missing or full, only one column 'profile_nan' is added as an indication of missing values. `profile` after imputation is shown below.
 
-<table>
+<table style="font-size: xx-small;">
 <thead>
 <tr><th>gender  </th><th style="text-align: right;">  age</th><th>id                              </th><th style="text-align: right;">  became_member_on</th><th style="text-align: right;">  income</th><th style="text-align: right;">  profile_nan</th></tr>
 </thead>
@@ -203,7 +203,7 @@ response = offer_receive.groupby(['person', 'offer']).any().reset_index()
 response.drop(columns=['event', 'time'], inplace=True)
 ```
 
-<table>
+<table style="font-size: xx-small;">
 <thead>
 <tr><th>person                          </th><th>offer                           </th><th>positive_response  </th></tr>
 </thead>
@@ -218,20 +218,134 @@ response.drop(columns=['event', 'time'], inplace=True)
 
 ### 3. Generate data for modeling
 
+Before merging `portfolio` and `profile` onto the skeleton, further process them to encode columns not suitable as inputs for a model, and drop the original columns. These include:
 
+`portfolio`
+
+* Expand channels into four columns representing different media where the offer is sent. Drop the email column since all offers have this option. 
+* Use one-hot encoding for 'offer_type'.
+
+`profile`
+
+* Convert 'became\_member_on' (date) to membership days counted from a later date (2018-08-01).
+* Use one-hot encoding for 'gender'.
+
+Finally, join processed `portfolio` and `profile` onto the skeleton and drop all hash columns (customer and offer id). Create a test set with 20% data for final metric evaluation. 
 
 ### 4. Build data transformer
+
+Explore the training data to determine the transformations to be applied. 
+
+```
+>>> train_X.shape
+(50630, 17)
+```
+The training data size is reasonably large for modeling. with 50,000 instances and 17 features. 
+
+```
+>>> train_X.columns
+Index(['reward', 'difficulty', 'duration', 'channel_web', 'channel_mobile',
+       'channel_social', 'type_bogo', 'type_discount', 'type_informational',
+       'age', 'income', 'profile_nan', 'days_as_member', 'gender_F',
+       'gender_M', 'gender_O', 'gender_U'],
+      dtype='object')
+```
+Two types of features available here, binary labeled (0, 1) or numerical. 
+
+![alt text](figures/num_feature_pair.png)
+
+A straightforward observation from the pair plot of numerical features is that all offer attributes are discrete while customer ones are continuous. Moreover, no clear correlation can be observed between any pair of customer attributes. Therefore, the features will be used as is, with a bit of preprocessing to scale them in case the algorithm is distance based (e.g., SVM). Implement `NumericalTransformer` to preprocess numerical columns, leveraging on the scikit-learn api. The discrete ones are scaled using `MinMaxScaler`, while the continuous ones are scaled using `StandardScaler`. Note that this preprocessing step is completely optional for tree-based algorithms since they are non-distance based. 
+
 ### 5. Select optimal classification algorithm
+
+Use out-of-the-box classifiers to select optimal classification algorithm. The score is taken from the mean of 5-fold cross validation accuracy.
+
+#### Logistic regression (benchmark)
+
+```
+>>> from sklearn.linear_model import LogisticRegression
+>>> logistic = make_pipeline(NumericalTransformer(), LogisticRegression())
+>>> cross_val_score(logistic, train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7365592954908515
+```
+
+#### Support vector machine with linear kernel
+
+```
+>>> from sklearn.svm import LinearSVC
+>>> svm = make_pipeline(NumericalTransformer(), LinearSVC(dual=False))
+>>> cross_val_score(svm, train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7346828966249379
+```
+
+#### Random forest
+
+```
+>>> from sklearn.ensemble import RandomForestClassifier
+>>> cross_val_score(RandomForestClassifier(n_estimators=100), train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7380603720566018
+```
+
+#### Gradient tree boosting (LightGBM)
+
+```
+>>> from lightgbm import LGBMClassifier
+>>> cross_val_score(LGBMClassifier(), train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7637567343733975
+```
+Gradient tree boosting implemented in LightGBM is the algorithm for the optimal model. Here LightGBM is chosen over XGBoost not only because of better performance, but also the early stopping feature. As a strategy to significantly reduce training time, both XGBoost and LightGBM support early stopping. However, with early stopping enabled, LightGBM always returns the optimal ensemble while XGBoost only returns the final ensemble. 
+
 ### 6. Tune hyperparameters
 
-## Results
-A logistic regression model will serve as the benchmark model in this project. Logistic regression is possibly the most popular algorithm for binary classification problems in industry. 
+Tuning hyperparameters for gradient tree boosting itself is a high dimensional problem. Here I followed a guide on hyperparameter tuning on XGBoost to break it down to a few steps of low dimensional grid search:
 
-## Conclusions
-The performance of models will be measured using two metrics, accuracy and F1 score. 
+1. Keep a high `learning_rate` (0.1) until the final step. Find optimal parameters controlling the growth of an individual tree (`num_leaves` and `max_depth`).
+2. Tune other parameters related to tree growth (`min_data_in_leaf` and `min_sum_hessian_in_leaf`).
+3. Tune sampling parameters (`bagging_fraction` and `feature_fraction`).
+4. Tune regularization parameters (`lambda_l1` and `lambda_l2`).
+5. Try lowering `learning_rate` and more rounds of iterations to see if the score further improves. 
+
+The entire process is leveraged on the cross validation API from LightGBM, with early stopping enabled and number of iterations returned. Here is the final optimal set of hyperparameters.
+
+```
+>>> lgbm = LGBMClassifier(num_leaves=127, max_depth=14, n_estimators=98)
+```
+
+## Results
+
+After training both benchmark and optimal models on the entire training set, evaluate their performance on the test set.
+
+| Model       | LogisticRegression | LightGBM |
+| ----------- | ------------------ | -------- |
+| Accuracy    | 0.737              | 0.766    |
+| F1          | 0.583              | 0.637    |
+
+To validate model robustness with no additional data, reshuffle the training and test data with different random states and evaluate performance on the new test data using the model trained from the new training data. The scores seem stable regardless how the dataset splits, suggesting the solution is robust.
+
+<table style="font-size: xx-small;">
+<thead>
+<tr><th style="text-align: right;">  accuracy</th><th style="text-align: right;">      f1</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right;">  0.762285</td><td style="text-align: right;">0.633094</td></tr>
+<tr><td style="text-align: right;">  0.765761</td><td style="text-align: right;">0.635436</td></tr>
+<tr><td style="text-align: right;">  0.759599</td><td style="text-align: right;">0.628404</td></tr>
+<tr><td style="text-align: right;">  0.77216 </td><td style="text-align: right;">0.642627</td></tr>
+<tr><td style="text-align: right;">  0.766472</td><td style="text-align: right;">0.63739 </td></tr>
+<tr><td style="text-align: right;">  0.763944</td><td style="text-align: right;">0.639218</td></tr>
+<tr><td style="text-align: right;">  0.764971</td><td style="text-align: right;">0.63821 </td></tr>
+<tr><td style="text-align: right;">  0.765998</td><td style="text-align: right;">0.638339</td></tr>
+</tbody>
+</table>
+
+
+Overall, the optimal LightGBM model has minor improvements in both accuracy and F1 score comparing with the benchmark logistic regression model. Both models solve the problem, predicting whether a customer will positively responds to a promotional offer based on their characteristics. The benchmark model is already a good starting point, and the improvement may seem marginal at first glance. But its impact will be amplified considering the business revenue of Starbucks, a worldwide coffee retailer.
 
 ### References
 * [Starbucks - Wikipedia](https://en.wikipedia.org/wiki/Starbucks)
-* [Logistic Regression - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html)
 * [Accuracy score - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html)
 * [F1 score - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html) 
+* [Logistic Regression - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html)
+* [LightGBM Python API](https://lightgbm.readthedocs.io/en/latest/Python-API.html)
+* [LightGBM Parameters](https://lightgbm.readthedocs.io/en/latest/Parameters.html)
+* [Complete Guide to Parameter Tuning in XGBoost with codes in Python](https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/)
