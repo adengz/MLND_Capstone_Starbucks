@@ -3,7 +3,7 @@
 ## Overview
 During a 30-day simulation, Starbucks sends out 10 different offers to its 17,000 customers. The transactions made by customers and offer related activities are recorded. The goal of this project is twofold: 
 
-1. to analyze the customer's attitude towards a received promotional;
+1. to analyze the customer's attitude towards a received promotional offer;
 2. to build a classifier to predict whether a customer likes an offer based on attributes of customer and offer. 
 
 ## Packages
