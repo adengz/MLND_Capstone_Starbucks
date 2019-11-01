@@ -354,6 +354,7 @@ Use out-of-the-box classifiers to select optimal classification algorithm. The s
 >>> cross_val_score(svm, train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
 0.7346828966249379
 ```
+Non-linear kernels are not considered since the algorithm scales poorly with number of instances. 
 
 ##### Random forest
 
@@ -363,14 +364,24 @@ Use out-of-the-box classifiers to select optimal classification algorithm. The s
 0.7380603720566018
 ```
 
-##### Gradient tree boosting (LightGBM)
+##### Gradient boosting
 
+```
+>>> from sklearn.ensemble import GradientBoostingClassifier
+>>> cross_val_score(GradientBoostingClassifier(), train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7594311595545019
+```
+```
+>>> from xgboost import XGBClassifier
+>>> cross_val_score(XGBClassifier(), train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
+0.7580288289089329
+```
 ```
 >>> from lightgbm import LGBMClassifier
 >>> cross_val_score(LGBMClassifier(), train_X, train_y, scoring='accuracy', cv=5, n_jobs=-1).mean()
 0.7637567343733975
 ```
-Gradient tree boosting implemented in LightGBM is the algorithm for the optimal model. Here LightGBM is chosen over XGBoost not only because of better performance, but also the early stopping feature. As a strategy to significantly reduce training time, both XGBoost and LightGBM support early stopping. However, with early stopping enabled, LightGBM always returns the optimal ensemble while XGBoost only returns the final ensemble. 
+Gradient boosting implemented in LightGBM is the algorithm for the optimal model. Here LightGBM is chosen over XGBoost not only because of better performance, but also the early stopping feature. As a strategy to significantly reduce training time, both XGBoost and LightGBM support early stopping. However, with early stopping enabled, LightGBM always returns the optimal ensemble while XGBoost only returns the final ensemble. 
 
 ### 6. Tune hyperparameters
 
@@ -378,11 +389,11 @@ Tuning hyperparameters for gradient tree boosting itself is a high dimensional p
 
 1. Keep a high `learning_rate` (0.1) until the final step. Find optimal parameters controlling the growth of an individual tree (`num_leaves` and `max_depth`).
 2. Tune other parameters related to tree growth (`min_data_in_leaf` and `min_sum_hessian_in_leaf`).
-3. Tune sampling parameters (`bagging_fraction` and `feature_fraction`).
+3. Tune "random forest" parameters (`bagging_fraction` and `feature_fraction`).
 4. Tune regularization parameters (`lambda_l1` and `lambda_l2`).
 5. Try lowering `learning_rate` and more rounds of iterations to see if the score further improves. 
 
-The entire process is leveraged on the cross validation API from LightGBM, with early stopping enabled and number of iterations returned. Here is the final optimal set of hyperparameters.
+The entire process is leveraged on the cross validation API from LightGBM, with early stopping enabled and number of iterations returned. Here is the final optimal set of hyperparameters, and default values are used for those not mentioned.
 
 ```
 >>> lgbm = LGBMClassifier(num_leaves=127, max_depth=14, n_estimators=98)
@@ -423,7 +434,11 @@ Overall, the optimal LightGBM model has minor improvement in predicting accuracy
 
 ### References
 * [Starbucks - Wikipedia](https://en.wikipedia.org/wiki/Starbucks)
-* [Logistic Regression - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html)
+* [Performance Metrics for Classification problems in Machine Learning](https://medium.com/thalus-ai/performance-metrics-for-classification-problems-in-machine-learning-part-i-b085d432082b)
+* [Logistic Regression - Detailed Overview](https://towardsdatascience.com/logistic-regression-detailed-overview-46c4da4303bc)
+* [Support Vector Machine - Introduction to Machine Learning Algorithms](https://towardsdatascience.com/support-vector-machine-introduction-to-machine-learning-algorithms-934a444fca47)
+* [Decision tree - Wikipedia](https://en.wikipedia.org/wiki/Decision_tree)
+* [Decision Tree Ensembles - Bagging and Boosting](https://towardsdatascience.com/decision-tree-ensembles-bagging-and-boosting-266a8ba60fd9)
 * [LightGBM Python API](https://lightgbm.readthedocs.io/en/latest/Python-API.html)
 * [LightGBM Parameters](https://lightgbm.readthedocs.io/en/latest/Parameters.html)
 * [Complete Guide to Parameter Tuning in XGBoost with codes in Python](https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/)
