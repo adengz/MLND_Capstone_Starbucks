@@ -15,6 +15,8 @@ Starbucks Corporation is an American coffee company and coffeehouse chain. In re
 
 In a simulated environment, Starbucks sends out three types of offers (BOGO, discount and informational) via multiple channels. Customers' responses to offers and transactions are recorded. The problem I proposed is to build a model to predict whether a customer will positively respond to a promotional offer. 
 
+### Data
+
 The data is provided by Starbucks and Udacity, in three JSON files:
 
 #### profile.json
@@ -46,7 +48,42 @@ Event log (306648 events x 4 fields)
 	* amount: (numeric) money spent in "transaction"
 * time: (numeric) hours after start of test
 
-The transcript will be processed to extract the responses from customers towards the promotional offers sent to them. With the response as labels, and properties of each customer and offer pair as features, a binary classifier can be trained to predict whether a customer will positively respond to a promotional offer. The prediction accuracy on a large unseen dataset can be used as one of the performance metrics. Besides, F1 score is a supplementary metric in case the response is highly imbalanced. Finally, a logistic regression will serve as the benchmark model, since it is possibly the most popular algorithm for binary classification problems in industry.
+### Proposed solution
+
+The transcript will be processed to extract the responses from customers towards the promotional offers sent to them. With the response as labels, and properties of each customer and offer pair as features, a binary classifier can be trained to predict whether a customer will positively respond to a promotional offer. 
+
+### Metrics
+
+The performance of solutions will be evaluated on a large unseen dataset. For a binary classification problem, the relationship between prediction and ground truth can be visualized by the confusion matrix, 
+
+![alt text](https://miro.medium.com/max/1380/1*0exdQRxrXQgIBZdPFIxbTw.png)
+
+where all data is sliced into four groups:
+
+* True positive (TP): both prediction and ground truth are positive class
+* True negative (TN): both prediction and ground truth are negative class
+* False positive (FP): predicted to be positive, but in fact negative
+* False negative (FN): predicted to be negative, but in fact positive
+
+Many scalar metrics can be derived from the confusion matrix. Defined by the ratio of correct predictions, accuracy can be expressed as:
+
+* Accuracy = (TP + TN) / (TP + FP + FN + TN)
+
+Accuracy is a good measure when the target classes are nearly balanced. It will become less effective facing highly imbalanced data. For instance, in fraud detection, the positive rate could be lower than 1%. A naive model predicting all instances to be negative will yield an accuracy above 99%, but will never get the job done. In this case, metrics like precision and recall are more sensitive.
+
+* Precision (P) = TP / (TP + FP)
+* Recall (R) = TP / (TP + FN)
+
+One can also consider both precision and recall at the same time using F1 score. 
+
+* F1 = 2 * P * R  / (P + R)
+
+In this project, I proposed to use accuracy as the primary metric. In case the data is highly imbalanced, F1 score will be used instead. 
+
+
+### Benchmark model
+
+A logistic regression will serve as the benchmark model, since it is possibly the most popular algorithm for binary classification problems in industry.
 
 ## Data analysis
 
