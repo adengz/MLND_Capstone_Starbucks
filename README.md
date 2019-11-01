@@ -11,9 +11,10 @@ The project is developed under Python 3.7 with the following packages:
 
 * pandas
 * NumPy
+* seaborn
 * scikit-learn
 * LightGBM
-* seaborn
+* XGBoost
 * tabulate
 * tqdm
 
