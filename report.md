@@ -170,7 +170,23 @@ Name: event, dtype: int64
 
 As a final remark for data processing, a unique customer-offer pair may have different responses since there are customers getting the same offer for more than once. Their responses may not necessarily remain the same. However, a model predicting customer-offer match should yield a unique output based on the input. Here I made a simple assumption that a customer likes an offer as long as a positive response is collected for more than once. 
 
+![alt text](figures/label_count.png)
 
+After finishing data processing and putting together data for modeling, I did another round of EDA before jumping into training the classifier. The target label (positive as 1 and negative as 0) has a 2:1 ratio in both training and test set, i.e., the data is not highly imbalanced. In this case, **accuracy** alone is good enough to measure the model performance, and F1 score will not be used. 
+
+```
+>>> train_X.columns
+Index(['reward', 'difficulty', 'duration', 'channel_web', 'channel_mobile',
+       'channel_social', 'type_bogo', 'type_discount', 'type_informational',
+       'age', 'income', 'profile_nan', 'days_as_member', 'gender_F',
+       'gender_M', 'gender_O', 'gender_U'],
+      dtype='object')
+```
+There are 17 features available from customer or offer characteristics. These features can be grouped into two types, binary labeled (including some one-hot encoded ones) and numerical. 
+
+![alt text](figures/num_feature_pair.png)
+
+A straightforward observation from the pair plot of numerical features is that all offer attributes are discrete while customer ones are continuous. Moreover, no clear correlation can be observed between any pair of customer attributes. Therefore, the features will be used as is, with a bit of preprocessing to scale them in case the algorithm is distance based (e.g., SVM).
 
 ## Solution implementation
 
@@ -240,27 +256,7 @@ Finally, join processed `portfolio` and `profile` onto the skeleton and drop all
 
 #### 4. Scale numerical variables
 
-Explore the training data to determine the transformations to be applied. 
-
-```
->>> train_X.shape
-(50630, 17)
-```
-The training data size is reasonably large for modeling. with 50,000+ instances and 17 features. 
-
-```
->>> train_X.columns
-Index(['reward', 'difficulty', 'duration', 'channel_web', 'channel_mobile',
-       'channel_social', 'type_bogo', 'type_discount', 'type_informational',
-       'age', 'income', 'profile_nan', 'days_as_member', 'gender_F',
-       'gender_M', 'gender_O', 'gender_U'],
-      dtype='object')
-```
-Two types of features available here, binary labeled (0, 1) or numerical. 
-
-![alt text](figures/num_feature_pair.png)
-
-A straightforward observation from the pair plot of numerical features is that all offer attributes are discrete while customer ones are continuous. Moreover, no clear correlation can be observed between any pair of customer attributes. Therefore, the features will be used as is, with a bit of preprocessing to scale them in case the algorithm is distance based (e.g., SVM). Implement `NumericalTransformer` to preprocess numerical columns, leveraging on the scikit-learn api. The discrete ones are scaled using `MinMaxScaler`, while the continuous ones are scaled using `StandardScaler`. Note that this preprocessing step is completely optional for tree-based algorithms since they are non-distance based. 
+Implement `NumericalTransformer` to preprocess numerical columns, leveraging on the scikit-learn api. The discrete ones are scaled using `MinMaxScaler`, while the continuous ones are scaled using `StandardScaler`. Note that this preprocessing step is completely optional for tree-based algorithms since they are non-distance based. 
 
 ### Modeling
 
@@ -326,33 +322,34 @@ After training both benchmark and optimal models on the entire training set, eva
 | Model       | LogisticRegression | LightGBM |
 | ----------- | ------------------ | -------- |
 | Accuracy    | 0.737              | 0.766    |
-| F1          | 0.583              | 0.637    |
-
-To validate model robustness with no additional data, reshuffle the training and test data with different random states and evaluate performance on the new test data using the model trained from the new training data. The scores seem stable regardless how the dataset splits, suggesting the solution is robust.
-
-<table style="font-size: xx-small;">
-<thead>
-<tr><th style="text-align: right;">  accuracy</th><th style="text-align: right;">      f1</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right;">  0.762285</td><td style="text-align: right;">0.633094</td></tr>
-<tr><td style="text-align: right;">  0.765761</td><td style="text-align: right;">0.635436</td></tr>
-<tr><td style="text-align: right;">  0.759599</td><td style="text-align: right;">0.628404</td></tr>
-<tr><td style="text-align: right;">  0.77216 </td><td style="text-align: right;">0.642627</td></tr>
-<tr><td style="text-align: right;">  0.766472</td><td style="text-align: right;">0.63739 </td></tr>
-<tr><td style="text-align: right;">  0.763944</td><td style="text-align: right;">0.639218</td></tr>
-<tr><td style="text-align: right;">  0.764971</td><td style="text-align: right;">0.63821 </td></tr>
-<tr><td style="text-align: right;">  0.765998</td><td style="text-align: right;">0.638339</td></tr>
-</tbody>
-</table>
 
 
-Overall, the optimal LightGBM model has minor improvements in both accuracy and F1 score comparing with the benchmark logistic regression model. Both models solve the problem, predicting whether a customer will positively responds to a promotional offer based on their characteristics. The benchmark model is already a good starting point, and the improvement may seem marginal at first glance. But its impact will be amplified considering the business revenue of Starbucks, a worldwide coffee retailer.
+To validate model robustness with no additional data, reshuffle the training and test data with different random states and evaluate performance on the new test data using the model trained from the new training data. The accuracy score seems stable regardless how the dataset splits, suggesting the solution is robust.
+
+```
+>>> scores = []
+>>> for seed in [8, 24, 13, 10, 41, 35, 7, 30]:
+...    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=seed)
+...    lgbm.fit(train_X, train_y)
+...    lgbm_y = lgbm.predict(test_X)
+...    scores.append(accuracy_score(lgbm.predict(test_X), test_y))
+...
+>>> scores
+[0.7622847211249802,
+ 0.7657607836941065,
+ 0.7595986727761099,
+ 0.7721598988781798,
+ 0.7664717964923369,
+ 0.7639437509875178,
+ 0.7649707694738506,
+ 0.7659977879601833]
+```
+
+
+Overall, the optimal LightGBM model has minor improvement in predicting accuracy comparing with the benchmark logistic regression model. Both models solve the problem, predicting whether a customer will positively responds to a promotional offer based on their characteristics. The benchmark model is already a good starting point, and the improvement may seem marginal at first glance. But its impact will be amplified considering the business revenue of Starbucks, a worldwide coffee retailer.
 
 ### References
 * [Starbucks - Wikipedia](https://en.wikipedia.org/wiki/Starbucks)
-* [Accuracy score - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html)
-* [F1 score - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html) 
 * [Logistic Regression - scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html)
 * [LightGBM Python API](https://lightgbm.readthedocs.io/en/latest/Python-API.html)
 * [LightGBM Parameters](https://lightgbm.readthedocs.io/en/latest/Parameters.html)
