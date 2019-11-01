@@ -52,7 +52,7 @@ Event log (306648 events x 4 fields)
 
 The transcript will be processed to extract the responses from customers towards the promotional offers sent to them. With the response as labels, and properties of each customer and offer pair as features, a binary classifier can be trained to predict whether a customer will positively respond to a promotional offer. 
 
-### Metrics
+#### Metrics
 
 The performance of solutions will be evaluated on a large unseen dataset. For a binary classification problem, the relationship between prediction and ground truth can be visualized by the confusion matrix, 
 
@@ -81,9 +81,45 @@ One can also consider both precision and recall at the same time using F1 score.
 In this project, I proposed to use accuracy as the primary metric. In case the data is highly imbalanced, F1 score will be used instead. 
 
 
-### Benchmark model
+#### Benchmark model
 
-A logistic regression will serve as the benchmark model, since it is possibly the most popular algorithm for binary classification problems in industry.
+A logistic regression will serve as the benchmark model, since it is possibly the most popular algorithm for binary classification problems in industry. 
+
+A logistic regression model estimates the probability of an instance belonging to the positive class using the logistic function, with the input being a linear model.
+
+![alt text](https://miro.medium.com/max/2400/1*RqXFpiNGwdiKBWyLJc_E7g.png)
+
+#### Algorithms beyond the benchmark
+
+##### Support vector machine (SVM)
+
+The objective of the support vector machine algorithm is to find a hyperplane in feature space that distinctly classifies the data points. For classification problems, the optimal hyperplane stays as far away from the closest training instances as possible to maximize the margin. 
+
+![alt text](https://miro.medium.com/max/600/0*0o8xIA4k3gXUDCFU.png)
+
+##### Decision tree and basic ensemble
+
+A decision tree is a flowchart-like structure in which each internal node represents a test on an attribute, each branch represents the outcome of the test, and each leaf node represents a class label.
+
+A single decision tree is rarely used in machine learning due to its instability. Small variations in the training data could lead to tremendous changes in the structure of optimal decision tree. In practice, decision trees are applied as the base estimator of ensemble methods, such as bagging and boosting. 
+
+![alt text](https://miro.medium.com/max/2506/1*bUySDOFp1SdzJXWmWJsXRQ.png)
+
+* Bagging: Training a bunch of individual models in a parallel way. Each model is trained by a random subset of the data
+* Boosting: Training a bunch of individual models in a sequential way. Each individual model learns from mistakes made by the previous model
+
+##### Random forest
+
+Random forest is an extension of decision tree bagging, with additional randomness in selecting subset of features. 
+
+![alt text](https://miro.medium.com/max/2634/1*jXkT3mj1mCqMaX5SqU1wNw.png)
+
+##### Gradient boosting
+
+In gradient boosting, a new decision tree is added to the ensemble by learning from the residual directly. It is an extremely popular solution in online machine learning competitions.
+
+![alt text](https://miro.medium.com/max/1658/1*yXP45jD1OqOnv-1RoshxMA.png)
+
 
 ## Data analysis
 
