@@ -168,11 +168,15 @@ In addition, the final wave of offers arrives on the 24th day, leaving less than
 Name: event, dtype: int64
 ```
 
-As a final remark, a unique customer-offer pair may have different responses since there are customers getting the same offer for more than once. Their responses may not necessarily remain the same. However, a model predicting customer-offer match should yield a unique output based on the input. Here I made a simple assumption that a customer likes an offer as long as a positive response is collected for more than once. 
+As a final remark for data processing, a unique customer-offer pair may have different responses since there are customers getting the same offer for more than once. Their responses may not necessarily remain the same. However, a model predicting customer-offer match should yield a unique output based on the input. Here I made a simple assumption that a customer likes an offer as long as a positive response is collected for more than once. 
+
+
 
 ## Solution implementation
 
-### 1. Impute missing values in `profile`
+### Data cleaning
+
+#### 1. Handle missing values in `profile`
 
 Based on my observations, all the rows with NaNs in `profile` have gender and income as NaN, and age of 118. As already mentioned in the data source, 118 is the encoded missing value for age. Therefore, imputation is required for gender, age and income. The median of numerical fields (age and income) is used, and another label ('U' for unknown) is applied for gender. Finally, since the three fields are either all missing or full, only one column 'profile_nan' is added as an indication of missing values. `profile` after imputation is shown below.
 
@@ -189,7 +193,7 @@ Based on my observations, all the rows with NaNs in `profile` have gender and in
 </tbody>
 </table>
 
-### 2. Process `transcript` to label responses
+#### 2. Process `transcript` to label responses
 
 Implement a `label_response` method to process `transcript` with one particular customer-offer pair as the unit. First, add a 'positive_response' column to `offer_receive` with starting value 0 (negative), and then loop `label_response` through all appearing customers and offers sent to each one of them to label positively responded offers to 1. A few key ideas in addition to the proposed **rules** reflected in `label_response`:
 
@@ -216,7 +220,9 @@ response.drop(columns=['event', 'time'], inplace=True)
 </tbody>
 </table>
 
-### 3. Generate data for modeling
+### Pre-processing
+
+#### 3. Encode categorical variables and assemble dataset
 
 Before merging `portfolio` and `profile` onto the skeleton, further process them to encode columns not suitable as inputs for a model, and drop the original columns. These include:
 
@@ -232,7 +238,7 @@ Before merging `portfolio` and `profile` onto the skeleton, further process them
 
 Finally, join processed `portfolio` and `profile` onto the skeleton and drop all hash columns (customer and offer id). Create a test set with 20% data for final metric evaluation. 
 
-### 4. Build data transformer
+#### 4. Scale numerical variables
 
 Explore the training data to determine the transformations to be applied. 
 
@@ -240,7 +246,7 @@ Explore the training data to determine the transformations to be applied.
 >>> train_X.shape
 (50630, 17)
 ```
-The training data size is reasonably large for modeling. with 50,000 instances and 17 features. 
+The training data size is reasonably large for modeling. with 50,000+ instances and 17 features. 
 
 ```
 >>> train_X.columns
@@ -256,11 +262,13 @@ Two types of features available here, binary labeled (0, 1) or numerical.
 
 A straightforward observation from the pair plot of numerical features is that all offer attributes are discrete while customer ones are continuous. Moreover, no clear correlation can be observed between any pair of customer attributes. Therefore, the features will be used as is, with a bit of preprocessing to scale them in case the algorithm is distance based (e.g., SVM). Implement `NumericalTransformer` to preprocess numerical columns, leveraging on the scikit-learn api. The discrete ones are scaled using `MinMaxScaler`, while the continuous ones are scaled using `StandardScaler`. Note that this preprocessing step is completely optional for tree-based algorithms since they are non-distance based. 
 
-### 5. Select optimal classification algorithm
+### Modeling
+
+#### 5. Select optimal classification algorithm
 
 Use out-of-the-box classifiers to select optimal classification algorithm. The score is taken from the mean of 5-fold cross validation accuracy.
 
-#### Logistic regression (benchmark)
+##### Logistic regression (benchmark)
 
 ```
 >>> from sklearn.linear_model import LogisticRegression
@@ -269,7 +277,7 @@ Use out-of-the-box classifiers to select optimal classification algorithm. The s
 0.7365592954908515
 ```
 
-#### Support vector machine with linear kernel
+##### Support vector machine with linear kernel
 
 ```
 >>> from sklearn.svm import LinearSVC
@@ -278,7 +286,7 @@ Use out-of-the-box classifiers to select optimal classification algorithm. The s
 0.7346828966249379
 ```
 
-#### Random forest
+##### Random forest
 
 ```
 >>> from sklearn.ensemble import RandomForestClassifier
@@ -286,7 +294,7 @@ Use out-of-the-box classifiers to select optimal classification algorithm. The s
 0.7380603720566018
 ```
 
-#### Gradient tree boosting (LightGBM)
+##### Gradient tree boosting (LightGBM)
 
 ```
 >>> from lightgbm import LGBMClassifier
